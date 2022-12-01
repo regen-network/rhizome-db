@@ -1,0 +1,2 @@
+[workspace]
+members = ["rhizome-trees", "rhizome-db"]
