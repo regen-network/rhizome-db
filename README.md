@@ -1,8 +1,8 @@
 # RhizomeDB
 
-This repo consists of two related projects:
+This repo consists of two related projects which are both at an early, experimental stage:
 * `rhizome-trees`: a library of persistent merklizable data structures
-* `rhizome-db`: an experimental peer to peer database based on these data structures
+* `rhizome-db`: a peer to peer database based on these data structures
 
 ## `rhizome-trees`
 
