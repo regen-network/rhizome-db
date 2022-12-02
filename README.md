@@ -22,6 +22,8 @@ All the trees will be benchmarked comprehensively to allow for performance compa
 and configurations. As a near term goal, there is the hope that this can help improve the performance of
 [Cosmos SDK](https://github.com/cosmos/cosmos-sdk) based projects.
 
+A set of basic CRDT types to support `rhizome-db` will also be part of `rhizome-trees`.
+
 ## `rhizome-db`
 
 **WARNING: This is an experimental project. We make no guarantees it will
