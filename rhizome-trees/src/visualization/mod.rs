@@ -1,7 +1,6 @@
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::Path;
-use graphviz_rust;
 use graphviz_rust::dot_structures;
 use graphviz_rust::dot_structures::{Edge, GraphAttributes};
 

@@ -1,4 +1,3 @@
-use std::borrow::Borrow;
 use crate::tree::traits::Hasher;
 
 pub struct Blake3Hash {

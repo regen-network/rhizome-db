@@ -1,8 +1,7 @@
 use std::borrow::{Borrow};
 use std::cmp::{max, Ordering};
 use std::fmt::Debug;
-use std::io::{BufRead, Read, Write};
-use std::ops::{Deref, DerefMut};
+use std::ops::{Deref};
 use std::sync::{Arc, RwLock};
 use anyhow::anyhow;
 
@@ -10,7 +9,7 @@ use graphviz_rust::dot_structures::{NodeId};
 use crate::tree::hash::HashRoot;
 
 use crate::tree::node_manager::{NodeRef, NodeStore, NullNodeStore};
-use crate::tree::traits::{Hasher, Hashable, MerkleTree, Reader, SimpleType};
+use crate::tree::traits::{Hasher, Hashable, MerkleTree, SimpleType};
 use crate::visualization::TreeGraph;
 
 pub struct Tree<K: Ord + SimpleType, V: SimpleType, Ptr: SimpleType, Store: NodeStore<Node<K, V, Ptr>> + Clone>
@@ -311,7 +310,7 @@ impl<K: Ord + Hashable, V: Hashable, Ptr: SimpleType> Node<K, V, Ptr> {
     fn to_graphviz(&self, graph: &mut TreeGraph, node_store: &dyn NodeStore<Self>, new_hash: fn() -> Box<dyn Hasher>) -> anyhow::Result<NodeId> {
         let mut root_hash = HashRoot::new(new_hash);
         self.merkle_hash(node_store, &mut root_hash)?;
-        let mut hash_str = hex::encode(&root_hash.result[..8]);
+        let hash_str = hex::encode(&root_hash.result[..8]);
         let id = graph.new_node(format!("{} v={} h={} {}", self.key, self.value, self.height, hash_str));
 
         if let Some(left) = self.left.read(node_store)? {
@@ -432,6 +431,7 @@ impl<K: Ord + SimpleType, V: SimpleType, Ptr: SimpleType> crate::tree::node_mana
     type Ptr = Ptr;
 }
 
+#[cfg(test)]
 mod tests {
     use crate::tree::avl::Tree;
     use crate::tree::hash::{Blake3Hash};
