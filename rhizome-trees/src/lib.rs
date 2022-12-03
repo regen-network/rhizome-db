@@ -3,4 +3,3 @@
 
 mod tree;
 mod visualization;
-mod crdt;

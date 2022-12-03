@@ -1,6 +1,6 @@
 use std::ops::Deref;
 use std::sync::{Arc, RwLock, Weak};
-use anyhow::{anyhow, Error, Result};
+use anyhow::{anyhow, Result};
 use lru::LruCache;
 
 pub trait Node: Sync + Send + Clone {
@@ -149,8 +149,8 @@ impl <N: Node> NodeRef<N> {
         }
     }
 
-    pub fn try_update(&self, node_store: &mut dyn NodeStore<N>) -> Result<Option<N::Ptr>> {
-        todo!()
+    pub fn try_update(&self, _node_store: &mut dyn NodeStore<N>) -> Result<Option<N::Ptr>> {
+        Err(anyhow!("not implemented"))
     }
 }
 
@@ -158,27 +158,27 @@ impl <N: Node> NodeRef<N> {
 pub struct NullNodeStore {}
 
 impl<N: Node> NodeStore<N> for NullNodeStore {
-    fn create(&mut self, node: &N) -> anyhow::Result<N::Ptr> {
-        Err(anyhow::format_err!("not implemented"))
+    fn create(&mut self, _node: &N) -> Result<N::Ptr> {
+        Err(anyhow!("not implemented"))
     }
 
-    fn read(&self, ptr: &N::Ptr) -> anyhow::Result<Arc<N>> {
-        Err(anyhow::format_err!("not implemented"))
+    fn read(&self, _ptr: &N::Ptr) -> Result<Arc<N>> {
+        Err(anyhow!("not implemented"))
     }
 
-    fn try_update(&mut self, ptr: &N::Ptr, node: &N) -> anyhow::Result<Option<N::Ptr>> {
-        Err(anyhow::format_err!("not implemented"))
+    fn try_update(&mut self, _ptr: &N::Ptr, _node: &N) -> Result<Option<N::Ptr>> {
+        Err(anyhow!("not implemented"))
     }
 
-    fn delete(&mut self, ptr: &N::Ptr) -> anyhow::Result<()> {
-        Err(anyhow::format_err!("not implemented"))
+    fn delete(&mut self, _ptr: &N::Ptr) -> Result<()> {
+        Err(anyhow!("not implemented"))
     }
 
-    fn inc_ref_count(&mut self, ptr: &N::Ptr) -> anyhow::Result<u32> {
+    fn inc_ref_count(&mut self, _ptr: &N::Ptr) -> Result<u32> {
         Ok(1)
     }
 
-    fn dec_ref_count(&mut self, ptr: &N::Ptr) -> anyhow::Result<u32> {
+    fn dec_ref_count(&mut self, _ptr: &N::Ptr) -> Result<u32> {
         Ok(1)
     }
 }
