@@ -9,9 +9,10 @@ use graphviz_rust::dot_structures::{NodeId};
 use crate::tree::hash::HashRoot;
 
 use crate::tree::node_manager::{NodeRef, NodeStore, NullNodeStore};
-use crate::tree::traits::{Hasher, Hashable, MerkleTree, SimpleType};
+use crate::tree::traits::{Hasher, Hashable, MerkleTree, SimpleType, Map, PersistentMap};
 use crate::visualization::TreeGraph;
 
+/// A persistent AVL tree.
 pub struct Tree<K: Ord + SimpleType, V: SimpleType, Ptr: SimpleType, Store: NodeStore<Node<K, V, Ptr>> + Clone>
 {
     root: NodeRef<Node<K, V, Ptr>>,
@@ -20,6 +21,7 @@ pub struct Tree<K: Ord + SimpleType, V: SimpleType, Ptr: SimpleType, Store: Node
 
 
 impl<K: Ord + SimpleType, V: SimpleType, Ptr: SimpleType> Tree<K, V, Ptr, NullNodeStore> {
+    /// Creates an empty AVL tree.
     pub fn new() -> Self {
         Tree {
             root: NodeRef::Empty,
@@ -28,9 +30,22 @@ impl<K: Ord + SimpleType, V: SimpleType, Ptr: SimpleType> Tree<K, V, Ptr, NullNo
     }
 }
 
+impl<K: Ord + SimpleType, V: SimpleType, Ptr: SimpleType> Default for Tree<K, V, Ptr, NullNodeStore> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+
+// impl<K: Ord + Hashable, V: Hashable, Ptr: SimpleType, Store: NodeStore<Node<K, V, Ptr>> + Clone> Map<K, V> for Tree<K, V, Ptr, Store> {
+// }
+//
+// impl<K: Ord + Hashable, V: Hashable, Ptr: SimpleType, Store: NodeStore<Node<K, V, Ptr>> + Clone> PersistentMap<K,V> for Tree<K, V, Ptr, Store> {
+//
+// }
 
 impl<K: Ord + Hashable, V: Hashable, Ptr: SimpleType, Store: NodeStore<Node<K, V, Ptr>> + Clone> Tree<K, V, Ptr, Store> {
-    pub fn get<Q: ?Sized>(&self, key: &Q) -> anyhow::Result<Option<V>>
+    fn get<Q: ?Sized>(&self, key: &Q) -> anyhow::Result<Option<V>>
         where
             K: Borrow<Q>,
             Q: Ord {
@@ -41,7 +56,8 @@ impl<K: Ord + Hashable, V: Hashable, Ptr: SimpleType, Store: NodeStore<Node<K, V
         }
     }
 
-    pub fn insert(&self, key: K, value: V) -> anyhow::Result<Tree<K, V, Ptr, Store>> {
+    /// Inserts or updates a value in the tree.
+    fn insert(&self, key: K, value: V) -> anyhow::Result<Self> {
         let node_store = self.node_store.borrow();
         Ok(match self.root.read(node_store)? {
             None => Tree {
@@ -55,18 +71,7 @@ impl<K: Ord + Hashable, V: Hashable, Ptr: SimpleType, Store: NodeStore<Node<K, V
         })
     }
 
-    pub fn insert_mut(&mut self, key: K, value: V) -> anyhow::Result<()> {
-        let node_store = self.node_store.borrow();
-        self.root = match self.root.read(node_store)? {
-            None => NodeRef::new(Node::new_node(key, value)),
-            Some(r) => {
-                NodeRef::new(Node::insert(r, key, value, node_store, true)?)
-            }
-        };
-        Ok(())
-    }
-
-    fn delete(&self, key: &K) -> anyhow::Result<Tree<K, V, Ptr, Store>> {
+    fn delete(&self, key: &K) -> anyhow::Result<Self> {
         // TODO cover case when value doesn't exist and don't copy
         let node_store = self.node_store.borrow();
         Ok(match self.root.read(node_store)? {
@@ -79,6 +84,17 @@ impl<K: Ord + Hashable, V: Hashable, Ptr: SimpleType, Store: NodeStore<Node<K, V
                 node_store: self.node_store.clone(),
             }
         })
+    }
+
+    fn insert_mut(&mut self, key: K, value: V) -> anyhow::Result<()> {
+        let node_store = self.node_store.borrow();
+        self.root = match self.root.read(node_store)? {
+            None => NodeRef::new(Node::new_node(key, value)),
+            Some(r) => {
+                NodeRef::new(Node::insert(r, key, value, node_store, true)?)
+            }
+        };
+        Ok(())
     }
 
     fn balanced(&self) -> anyhow::Result<bool> {
@@ -449,7 +465,7 @@ mod tests {
             assert!(tree.balanced()?);
             assert_eq!(Some(Int32BigEndian(i)), tree.get(&Int32BigEndian(i))?);
             let graph = tree.to_graphviz(new_hash)?;
-            graph.save_file(String::from(format!("avl-insert-{:?}.dot", i)));
+            graph.save_file(format!("avl-insert-{:?}.dot", i));
             i += 1
         }
 
@@ -458,7 +474,7 @@ mod tests {
             assert_eq!(None, tree.get(&Int32BigEndian(i))?);
             assert!(tree.balanced()?);
             let graph = tree.to_graphviz(new_hash)?;
-            graph.save_file(String::from(format!("avl-delete-{:?}.dot", i)));
+            graph.save_file(format!("avl-delete-{:?}.dot", i));
             i -= 1
         }
 
