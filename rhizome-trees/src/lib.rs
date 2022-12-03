@@ -1,5 +1,5 @@
 #![warn(rustdoc::broken_intra_doc_links)]
 #![warn(missing_docs)]
 
-mod tree;
+pub mod tree;
 mod visualization;

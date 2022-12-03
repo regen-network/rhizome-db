@@ -133,7 +133,7 @@ pub struct Node<K: Ord + SimpleType, V: SimpleType, Ptr: SimpleType> {
 }
 
 impl<K: Ord + Hashable, V: Hashable, Ptr: SimpleType> Node<K, V, Ptr> {
-    pub fn get<Q: ?Sized>(&self, key: &Q, node_store: &dyn NodeStore<Self>) -> anyhow::Result<Option<V>>
+    fn get<Q: ?Sized>(&self, key: &Q, node_store: &dyn NodeStore<Self>) -> anyhow::Result<Option<V>>
         where K: Borrow<Q>, Q: Ord {
         match key.cmp(self.key.borrow()) {
             Ordering::Less => match self.left.read(node_store)? {
