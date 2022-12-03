@@ -1,20 +1,6 @@
-extern crate core;
+#![warn(rustdoc::broken_intra_doc_links)]
+#![warn(missing_docs)]
 
 mod tree;
 mod visualization;
 mod crdt;
-
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
