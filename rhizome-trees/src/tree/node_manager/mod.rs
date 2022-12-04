@@ -1,5 +1,7 @@
+mod manager;
+
 use std::ops::Deref;
-use std::sync::{Arc, RwLock, Weak};
+use std::sync::{Arc, LockResult, RwLock, Weak};
 use anyhow::{anyhow, Result};
 use lru::LruCache;
 
@@ -86,37 +88,40 @@ impl <N: Node> NodeRef<N> {
     }
 
 
-    // pub fn read_or_clone(self, node_store: &dyn NodeStore<Node, Ptr>) -> Result<Option<Node>> {
-    //     match self {
-    //         NodeRef::Inner(inner) => {
-    //             match Arc::try_unwrap(inner) {
-    //                 Ok(inner) => {
-    //                     let inner = RwLock::into_inner(inner)?;
-    //                     match inner {
-    //                         NodeRefInner::MemNode(node_arc) => {
-    //                             match Arc::try_unwrap(node_arc) {
-    //                                 Ok(_) => {}
-    //                                 Err(_) => {}
-    //                             }
-    //                             todo!()
-    //                         }
-    //                         NodeRefInner::DiskNode { .. } => {
-    //                             todo!()
-    //                         }
-    //                     }
-    //                 }
-    //                 Err(inner_arc) => {
-    //                     if let Some(node_arc) = NodeRef::read_inner(&inner_arc, node_store)? {
-    //                         Ok(Some((*node_arc).clone()))
-    //                     } else {
-    //                         Ok(None)
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //         NodeRef::Empty => Ok(None)
-    //     }
-    // }
+    pub fn read_or_clone(self, node_store: &dyn NodeStore<N>) -> Result<Option<N>> {
+        match self {
+            NodeRef::Inner(inner) => {
+                match Arc::try_unwrap(inner) {
+                    Ok(inner) => {
+                        match RwLock::into_inner(inner) {
+                            Ok(inner) => {
+                                match inner {
+                                    NodeRefInner::MemNode(node_arc) => {
+                                        match Arc::try_unwrap(node_arc) {
+                                            Ok(n) => Ok(Some(n)),
+                                            Err(_) => todo!()
+                                        }
+                                    }
+                                    NodeRefInner::DiskNode { .. } => {
+                                        todo!()
+                                    }
+                                }
+                            }
+                            Err(_) => todo!()
+                        }
+                    }
+                    Err(inner_arc) => {
+                        if let Some(node_arc) = NodeRef::read_inner(&inner_arc, node_store)? {
+                            Ok(Some((*node_arc).clone()))
+                        } else {
+                            Ok(None)
+                        }
+                    }
+                }
+            }
+            NodeRef::Empty => Ok(None)
+        }
+    }
 
     pub fn save(&self, node_store: &mut dyn NodeStore<N>) -> Result<Option<N::Ptr>> {
         match self {

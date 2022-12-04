@@ -3,3 +3,4 @@ pub mod avl;
 pub mod traits;
 pub mod value;
 pub mod hash;
+mod merkle;
