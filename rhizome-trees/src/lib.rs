@@ -3,3 +3,5 @@
 
 pub mod tree;
 mod visualization;
+pub mod hash;
+mod cache;

@@ -1,59 +1,36 @@
-mod manager;
+pub mod node_ref;
+pub mod node_store;
 
 use std::ops::Deref;
-use std::sync::{Arc, LockResult, RwLock, Weak};
+use std::sync::{Arc, RwLock};
 use anyhow::{anyhow, Result};
 use lru::LruCache;
-
-pub trait Node: Sync + Send + Clone {
-    type Ptr: Sync + Send + Clone + std::fmt::Debug;
-}
-
-#[derive(Debug, Clone)]
-pub enum NodeRef<N: Node>
-{
-    Inner(Arc<RwLock<NodeRefInner<N>>>),
-    Empty,
-}
-
-#[derive(Debug, Clone)]
-pub enum NodeRefInner<N: Node> {
-    MemNode(Arc<N>),
-    DiskNode { disk_pointer: N::Ptr, cached: Weak<N> },
-}
+use crate::tree::node_manager::node_ref::{Node, NodeRef, NodeRefInner};
+use crate::tree::node_manager::node_store::{NodeStore, NullNodeStore};
 
 pub struct NodeManager<N: Node> {
     node_store: Arc<dyn NodeStore<N>>,
     cache: LruCache<N::Ptr, N>,
 }
 
-pub trait NodeStore<N : Node> {
-    fn create(&mut self, node: &N) -> Result<N::Ptr>;
-    fn read(&self, ptr: &N::Ptr) -> Result<Arc<N>>;
-    fn try_update(&mut self, ptr: &N::Ptr, node: &N) -> Result<Option<N::Ptr>>;
-    fn delete(&mut self, ptr: &N::Ptr) -> Result<()>;
-    fn inc_ref_count(&mut self, ptr: &N::Ptr) -> Result<u32>;
-    fn dec_ref_count(&mut self, ptr: &N::Ptr) -> Result<u32>;
+impl <N: Node> Default for NodeManager<N> {
+    fn default() -> Self {
+        NodeManager{
+            node_store: Arc::new(NullNodeStore{}),
+            cache: LruCache::unbounded(),
+        }
+    }
 }
 
-// #[derive(Debug, Clone)]
-// pub enum ValueRef<Value, Ptr> {
-//     MemValue()
-// }
-
-impl <N: Node> NodeRef<N> {
-    pub fn new(node: N) -> Self {
-        NodeRef::Inner(Arc::new(RwLock::new(NodeRefInner::MemNode(Arc::new(node)))))
-    }
-
-    pub fn read(&self, node_store: &dyn NodeStore<N>) -> Result<Option<Arc<N>>> {
-        match self {
-            NodeRef::Inner(inner) => NodeRef::read_inner(inner, node_store),
+impl<N: Node> NodeManager<N> {
+    pub fn read(&self, node_ref: &NodeRef<N>) -> Result<Option<Arc<N>>> {
+        match node_ref {
+            NodeRef::Inner(inner) => self.read_inner(inner),
             NodeRef::Empty => Ok(None),
         }
     }
 
-    fn read_inner(inner: &Arc<RwLock<NodeRefInner<N>>>, node_store: &dyn NodeStore<N>) -> Result<Option<Arc<N>>> {
+    fn read_inner(&self, inner: &Arc<RwLock<NodeRefInner<N>>>) -> Result<Option<Arc<N>>> {
         let mut cache_copy: Option<NodeRefInner<N>> = None;
         let res = match inner.read() {
             Ok(node_ref) => {
@@ -63,7 +40,7 @@ impl <N: Node> NodeRef<N> {
                         if let Some(node) = cached.upgrade() {
                             Ok(Some(node))
                         } else {
-                            let node = node_store.read(disk_pointer)?;
+                            let node = self.node_store.read(disk_pointer)?;
                             cache_copy = Some(NodeRefInner::DiskNode {
                                 disk_pointer: disk_pointer.clone(),
                                 cached: Arc::downgrade(&node),
@@ -88,8 +65,15 @@ impl <N: Node> NodeRef<N> {
     }
 
 
-    pub fn read_or_clone(self, node_store: &dyn NodeStore<N>) -> Result<Option<N>> {
-        match self {
+    pub fn take_or_clone(&self, node_ref: NodeRef<N>, editable: bool) -> Result<Option<(N, bool)>> {
+        if !editable {
+            return match self.read(&node_ref)? {
+                None => Ok(None),
+                Some(node_arc) => Ok(Some(((*node_arc).clone(), false)))
+            };
+        }
+
+        match node_ref {
             NodeRef::Inner(inner) => {
                 match Arc::try_unwrap(inner) {
                     Ok(inner) => {
@@ -98,21 +82,26 @@ impl <N: Node> NodeRef<N> {
                                 match inner {
                                     NodeRefInner::MemNode(node_arc) => {
                                         match Arc::try_unwrap(node_arc) {
-                                            Ok(n) => Ok(Some(n)),
-                                            Err(_) => todo!()
+                                            Ok(node) => Ok(Some((node, true))),
+                                            Err(node_arc) => Ok(Some(((*node_arc).clone(), false)))
                                         }
                                     }
-                                    NodeRefInner::DiskNode { .. } => {
-                                        todo!()
+                                    NodeRefInner::DiskNode { disk_pointer, cached } => {
+                                        if let Some(node_arc) = cached.upgrade() {
+                                            return Ok(Some(((*node_arc).clone(), false)));
+                                        }
+
+                                        let node_arc = self.node_store.read(&disk_pointer)?;
+                                        Ok(Some(((*node_arc).clone(), false)))
                                     }
                                 }
                             }
-                            Err(_) => todo!()
+                            Err(err) => Err(anyhow!("poison error: {:?}", err))
                         }
                     }
                     Err(inner_arc) => {
-                        if let Some(node_arc) = NodeRef::read_inner(&inner_arc, node_store)? {
-                            Ok(Some((*node_arc).clone()))
+                        if let Some(node_arc) = self.read_inner(&inner_arc)? {
+                            Ok(Some(((*node_arc).clone(), false)))
                         } else {
                             Ok(None)
                         }
@@ -123,14 +112,14 @@ impl <N: Node> NodeRef<N> {
         }
     }
 
-    pub fn save(&self, node_store: &mut dyn NodeStore<N>) -> Result<Option<N::Ptr>> {
-        match self {
+    pub fn save(&mut self, node_ref: &NodeRef<N>) -> Result<Option<N::Ptr>> {
+        match node_ref {
             NodeRef::Inner(inner) => {
                 match inner.write() {
                     Ok(mut node_ref) => {
                         match node_ref.deref() {
                             NodeRefInner::MemNode(node) => {
-                                let ptr = node_store.create(node)?;
+                                let ptr = self.node_store.create(node)?;
                                 *node_ref = NodeRefInner::DiskNode {
                                     disk_pointer: ptr.clone(),
                                     cached: Arc::downgrade(node),
@@ -138,7 +127,7 @@ impl <N: Node> NodeRef<N> {
                                 Ok(Some(ptr))
                             }
                             NodeRefInner::DiskNode { disk_pointer, .. } => {
-                                let _ = node_store.inc_ref_count(disk_pointer)?;
+                                let _ = self.node_store.inc_ref_count(disk_pointer)?;
                                 Ok(Some(disk_pointer.clone()))
                             }
                         }
@@ -152,38 +141,5 @@ impl <N: Node> NodeRef<N> {
                 Ok(None)
             }
         }
-    }
-
-    pub fn try_update(&self, _node_store: &mut dyn NodeStore<N>) -> Result<Option<N::Ptr>> {
-        Err(anyhow!("not implemented"))
-    }
-}
-
-#[derive(Clone)]
-pub struct NullNodeStore {}
-
-impl<N: Node> NodeStore<N> for NullNodeStore {
-    fn create(&mut self, _node: &N) -> Result<N::Ptr> {
-        Err(anyhow!("not implemented"))
-    }
-
-    fn read(&self, _ptr: &N::Ptr) -> Result<Arc<N>> {
-        Err(anyhow!("not implemented"))
-    }
-
-    fn try_update(&mut self, _ptr: &N::Ptr, _node: &N) -> Result<Option<N::Ptr>> {
-        Err(anyhow!("not implemented"))
-    }
-
-    fn delete(&mut self, _ptr: &N::Ptr) -> Result<()> {
-        Err(anyhow!("not implemented"))
-    }
-
-    fn inc_ref_count(&mut self, _ptr: &N::Ptr) -> Result<u32> {
-        Ok(1)
-    }
-
-    fn dec_ref_count(&mut self, _ptr: &N::Ptr) -> Result<u32> {
-        Ok(1)
     }
 }
