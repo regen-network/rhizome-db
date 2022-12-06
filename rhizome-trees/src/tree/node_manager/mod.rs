@@ -9,16 +9,22 @@ use crate::tree::node_manager::node_ref::{Node, NodeRef, NodeRefInner};
 use crate::tree::node_manager::node_store::{NodeStore, NullNodeStore};
 
 pub struct NodeManager<N: Node> {
-    node_store: Arc<dyn NodeStore<N>>,
-    cache: LruCache<N::Ptr, N>,
+    node_store: Box<dyn NodeStore<N>>,
+    cache: Arc<LruCache<N::Ptr, N>>,
 }
 
 impl <N: Node> Default for NodeManager<N> {
     fn default() -> Self {
         NodeManager{
-            node_store: Arc::new(NullNodeStore{}),
-            cache: LruCache::unbounded(),
+            node_store: Box::new(NullNodeStore{}),
+            cache: Arc::new(LruCache::unbounded()),
         }
+    }
+}
+
+impl<N: Node> Clone for NodeManager<N> {
+    fn clone(&self) -> Self {
+        Self{ node_store: self.node_store.clone(), cache: self.cache.clone() }
     }
 }
 

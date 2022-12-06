@@ -1,4 +1,3 @@
-use std::borrow::Borrow;
 use std::fmt::{Debug, Display};
 
 pub trait SimpleType: Debug + Clone + Sync + Send + Display {}
@@ -26,22 +25,22 @@ pub trait Hasher {
 }
 
 pub trait Map<K, V> {
-    fn get<Q: ?Sized>(&self, key: &Q, reader: &dyn Reader<Option<&V>>) -> anyhow::Result<()>
-        where K: Borrow<Q>, Q: Ord;
+    // fn get<Q: ?Sized>(&self, key: &Q, reader: &dyn Reader<Option<&V>>) -> anyhow::Result<()>
+    //     where K: Borrow<Q>, Q: Ord;
 }
 
-pub trait PersistentMap<K, V>: Map<K, V>
+pub trait PersistentMap<K, V> : Map<K, V> + Sized
     where K: Clone, V: Clone
 {
-    fn insert(&self, key: &K, value: &V) -> Self;
-    fn delete(&self, key: &K) -> Self;
+    fn insert(&self, key: K, value: V) -> anyhow::Result<Self>;
+    fn delete(&self, key: &K) -> anyhow::Result<Self>;
 }
 
 pub trait MutableMap<K, V>: Map<K, V>
     where K: Clone, V: Clone
 {
-    fn insert_mut(&mut self, key: &K, value: &V);
-    fn delete_mut(&mut self, key: &K);
+    fn insert_mut(&mut self, key: K, value: V) -> anyhow::Result<()>;
+    fn delete_mut(&mut self, key: &K) -> anyhow::Result<()>;
 }
 
 pub trait MerkleTree {

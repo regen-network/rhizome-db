@@ -4,7 +4,7 @@ pub trait Node: Sync + Send + Clone {
     type Ptr: Sync + Send + Clone + std::fmt::Debug + Eq + std::hash::Hash;
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub enum NodeRef<N: Node>
 {
     Inner(Arc<RwLock<NodeRefInner<N>>>),
@@ -15,6 +15,12 @@ pub enum NodeRef<N: Node>
 pub enum NodeRefInner<N: Node> {
     MemNode(Arc<N>),
     DiskNode { disk_pointer: N::Ptr, cached: Weak<N> },
+}
+
+impl<N: Node> Default for NodeRef<N> {
+    fn default() -> Self {
+        NodeRef::Empty
+    }
 }
 
 impl<N: Node> NodeRef<N> {

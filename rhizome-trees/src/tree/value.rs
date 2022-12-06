@@ -17,7 +17,7 @@ impl Hashable for BytesValue {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct Int32BigEndian(pub i32);
 
 impl Display for Int32BigEndian {

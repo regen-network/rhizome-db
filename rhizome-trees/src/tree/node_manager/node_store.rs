@@ -9,9 +9,9 @@ pub trait NodeStore<N : Node> {
     fn delete(&mut self, ptr: &N::Ptr) -> Result<()>;
     fn inc_ref_count(&mut self, ptr: &N::Ptr) -> Result<u32>;
     fn dec_ref_count(&mut self, ptr: &N::Ptr) -> Result<u32>;
+    fn clone(&self) -> Box<dyn NodeStore<N>>;
 }
 
-#[derive(Clone)]
 pub struct NullNodeStore {}
 
 impl<N: Node> NodeStore<N> for NullNodeStore {
@@ -37,5 +37,9 @@ impl<N: Node> NodeStore<N> for NullNodeStore {
 
     fn dec_ref_count(&mut self, _ptr: &N::Ptr) -> Result<u32> {
         Ok(1)
+    }
+
+    fn clone(&self) -> Box<dyn NodeStore<N>> {
+        Box::new(Self{})
     }
 }
