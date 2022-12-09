@@ -3,12 +3,12 @@ use std::cmp::{max, Ordering};
 use std::fmt::Debug;
 use std::mem::take;
 use std::ops::{Deref};
-use std::sync::{Arc, RwLock};
+use std::sync::{RwLock};
 use anyhow::anyhow;
 
 use graphviz_rust::dot_structures::{NodeId};
 use crate::hash::HashRoot;
-use crate::tree::node_manager::node_ref::{NodeRef};
+use crate::tree::node_manager::node_ref::{NodeHandle, NodeRef};
 use crate::tree::node_manager::NodeManager;
 
 use crate::tree::traits::{Hasher, Hashable, MerkleTree, SimpleType, Map, PersistentMap, MutableMap};
@@ -283,7 +283,7 @@ impl<K: Ord + Hashable, V: Hashable, Ptr: SimpleType + Eq + std::hash::Hash> Nod
         Ok(id)
     }
 
-    fn get_height(mnode: &Option<Arc<Self>>) -> i32 {
+    fn get_height(mnode: &Option<NodeHandle<Self>>) -> i32 {
         if let Some(node) = mnode {
             node.height
         } else {

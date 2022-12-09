@@ -5,7 +5,7 @@ use std::ops::Deref;
 use std::sync::{Arc, RwLock};
 use anyhow::{anyhow, Result};
 use lru::LruCache;
-use crate::tree::node_manager::node_ref::{Node, NodeRef, NodeRefInner};
+use crate::tree::node_manager::node_ref::{Node, NodeHandle, NodeRef, NodeRefInner};
 use crate::tree::node_manager::node_store::{NodeStore, NullNodeStore};
 
 pub struct NodeManager<N: Node> {
@@ -29,29 +29,36 @@ impl<N: Node> Clone for NodeManager<N> {
 }
 
 impl<N: Node> NodeManager<N> {
-    pub fn read(&self, node_ref: &NodeRef<N>) -> Result<Option<Arc<N>>> {
+    pub fn read<'a>(&self, node_ref: &'a NodeRef<N>) -> Result<Option<NodeHandle<'a, N>>> {
         match node_ref {
             NodeRef::Inner(inner) => self.read_inner(inner),
             NodeRef::Empty => Ok(None),
         }
     }
 
-    fn read_inner(&self, inner: &Arc<RwLock<NodeRefInner<N>>>) -> Result<Option<Arc<N>>> {
+    fn read_inner<'a>(&self, inner: &'a Arc<RwLock<NodeRefInner<N>>>) -> Result<Option<NodeHandle<'a, N>>> {
         let mut cache_copy: Option<NodeRefInner<N>> = None;
         let res = match inner.read() {
             Ok(node_ref) => {
+                let mut have_mem_node = false;
+                if let NodeRefInner::MemNode(_) = node_ref.deref() {
+                    have_mem_node = true;
+                }
+                if have_mem_node {
+                    return Ok(Some(NodeHandle::Direct(node_ref)))
+                }
                 match node_ref.deref() {
-                    NodeRefInner::MemNode(node) => Ok(Some(node.clone())),
+                    NodeRefInner::MemNode(_) => Err(anyhow!("unexpected case")),
                     NodeRefInner::DiskNode { disk_pointer, cached } => {
                         if let Some(node) = cached.upgrade() {
-                            Ok(Some(node))
+                            Ok(Some(NodeHandle::Arc(node)))
                         } else {
                             let node = self.node_store.read(disk_pointer)?;
                             cache_copy = Some(NodeRefInner::DiskNode {
                                 disk_pointer: disk_pointer.clone(),
                                 cached: Arc::downgrade(&node),
                             });
-                            Ok(Some(node))
+                            Ok(Some(NodeHandle::Arc(node)))
                         }
                     }
                 }
@@ -86,11 +93,8 @@ impl<N: Node> NodeManager<N> {
                         match RwLock::into_inner(inner) {
                             Ok(inner) => {
                                 match inner {
-                                    NodeRefInner::MemNode(node_arc) => {
-                                        match Arc::try_unwrap(node_arc) {
-                                            Ok(node) => Ok(Some((node, true))),
-                                            Err(node_arc) => Ok(Some(((*node_arc).clone(), false)))
-                                        }
+                                    NodeRefInner::MemNode(node) => {
+                                        Ok(Some((node, true)))
                                     }
                                     NodeRefInner::DiskNode { disk_pointer, cached } => {
                                         if let Some(node_arc) = cached.upgrade() {
@@ -125,10 +129,11 @@ impl<N: Node> NodeManager<N> {
                     Ok(mut node_ref) => {
                         match node_ref.deref() {
                             NodeRefInner::MemNode(node) => {
+                                // TODO cache
                                 let ptr = self.node_store.create(node)?;
                                 *node_ref = NodeRefInner::DiskNode {
                                     disk_pointer: ptr.clone(),
-                                    cached: Arc::downgrade(node),
+                                    cached: Default::default(), // TODO weak pointer from cached Arc
                                 };
                                 Ok(Some(ptr))
                             }
