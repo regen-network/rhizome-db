@@ -1,3 +1,7 @@
+//! Primitives structures for referencing tree nodes which allow
+//! for nodes to be serialized a variety of different storage backends
+//! and easy creation of transient data structures.
+
 pub mod node_ref;
 pub mod node_store;
 
@@ -45,17 +49,17 @@ impl<N: Node> NodeManager<N> {
                     have_mem_node = true;
                 }
                 if have_mem_node {
-                    return Ok(Some(NodeHandle::Direct(node_ref)))
+                    return Ok(Some(NodeHandle::Mem(node_ref)))
                 }
                 match node_ref.deref() {
                     NodeRefInner::MemNode(_) => Err(anyhow!("unexpected case")),
-                    NodeRefInner::DiskNode { disk_pointer, cached } => {
+                    NodeRefInner::StoredNode { pointer: disk_pointer, cached } => {
                         if let Some(node) = cached.upgrade() {
                             Ok(Some(NodeHandle::Arc(node)))
                         } else {
                             let node = self.node_store.read(disk_pointer)?;
-                            cache_copy = Some(NodeRefInner::DiskNode {
-                                disk_pointer: disk_pointer.clone(),
+                            cache_copy = Some(NodeRefInner::StoredNode {
+                                pointer: disk_pointer.clone(),
                                 cached: Arc::downgrade(&node),
                             });
                             Ok(Some(NodeHandle::Arc(node)))
@@ -96,7 +100,7 @@ impl<N: Node> NodeManager<N> {
                                     NodeRefInner::MemNode(node) => {
                                         Ok(Some((node, true)))
                                     }
-                                    NodeRefInner::DiskNode { disk_pointer, cached } => {
+                                    NodeRefInner::StoredNode { pointer: disk_pointer, cached } => {
                                         if let Some(node_arc) = cached.upgrade() {
                                             return Ok(Some(((*node_arc).clone(), false)));
                                         }
@@ -131,13 +135,13 @@ impl<N: Node> NodeManager<N> {
                             NodeRefInner::MemNode(node) => {
                                 // TODO cache
                                 let ptr = self.node_store.create(node)?;
-                                *node_ref = NodeRefInner::DiskNode {
-                                    disk_pointer: ptr.clone(),
+                                *node_ref = NodeRefInner::StoredNode {
+                                    pointer: ptr.clone(),
                                     cached: Default::default(), // TODO weak pointer from cached Arc
                                 };
                                 Ok(Some(ptr))
                             }
-                            NodeRefInner::DiskNode { disk_pointer, .. } => {
+                            NodeRefInner::StoredNode { pointer: disk_pointer, .. } => {
                                 let _ = self.node_store.inc_ref_count(disk_pointer)?;
                                 Ok(Some(disk_pointer.clone()))
                             }
