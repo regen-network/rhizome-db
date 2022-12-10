@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use std::sync::{Arc};
 
-use crate::tree::node_manager::node_ref::{Node};
+use crate::node_ref::r#impl::{Node};
 
 /// The trait to be implied by all node storage mediums.
 pub trait NodeStore<N : Node> {

@@ -78,4 +78,10 @@ impl<'a, N: Node> Deref for NodeHandle<'a, N> {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_new() {
 
+    }
+}

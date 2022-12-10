@@ -1,17 +1,10 @@
-//! Primitives structures for referencing tree nodes which allow
-//! for nodes to be serialized a variety of different storage backends
-//! and easy creation of transient data structures.
-
-mod node_ref;
-mod node_store;
-
 use std::ops::Deref;
 use std::sync::{Arc, RwLock};
 use anyhow::{anyhow, Result};
 use lru::LruCache;
-pub use crate::tree::node_manager::node_ref::{Node, NodeHandle, NodeRef};
-use crate::tree::node_manager::node_ref::{NodeRefInner};
-pub use crate::tree::node_manager::node_store::{NodeStore, NullNodeStore};
+use crate::node_ref::r#impl::{Node, NodeHandle, NodeRef};
+use crate::node_ref::r#impl::{NodeRefInner};
+use crate::node_ref::node_store::{NodeStore, NullNodeStore};
 
 /// The NodeManager functions as an abstraction over node storage and caching
 /// which properly handles reading and writing of nodes.
