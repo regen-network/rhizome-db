@@ -2,19 +2,25 @@
 //! for nodes to be serialized a variety of different storage backends
 //! and easy creation of transient data structures.
 
-pub mod node_ref;
-pub mod node_store;
+mod node_ref;
+mod node_store;
 
 use std::ops::Deref;
 use std::sync::{Arc, RwLock};
 use anyhow::{anyhow, Result};
 use lru::LruCache;
-use crate::tree::node_manager::node_ref::{Node, NodeHandle, NodeRef, NodeRefInner};
-use crate::tree::node_manager::node_store::{NodeStore, NullNodeStore};
+pub use crate::tree::node_manager::node_ref::{Node, NodeHandle, NodeRef};
+use crate::tree::node_manager::node_ref::{NodeRefInner};
+pub use crate::tree::node_manager::node_store::{NodeStore, NullNodeStore};
 
+/// The NodeManager functions as an abstraction over node storage and caching
+/// which properly handles reading and writing of nodes.
 pub struct NodeManager<N: Node> {
-    node_store: Box<dyn NodeStore<N>>,
-    cache: Arc<LruCache<N::Ptr, N>>,
+    /// The underlying node store.
+    pub node_store: Box<dyn NodeStore<N>>,
+
+    /// The in-memory cache of nodes read from storage.
+    pub cache: Arc<LruCache<N::Ptr, N>>,
 }
 
 impl <N: Node> Default for NodeManager<N> {
@@ -33,6 +39,7 @@ impl<N: Node> Clone for NodeManager<N> {
 }
 
 impl<N: Node> NodeManager<N> {
+    /// Reads the node from memory, the cache or storage.
     pub fn read<'a>(&self, node_ref: &'a NodeRef<N>) -> Result<Option<NodeHandle<'a, N>>> {
         match node_ref {
             NodeRef::Inner(inner) => self.read_inner(inner),
@@ -82,6 +89,10 @@ impl<N: Node> NodeManager<N> {
     }
 
 
+    /// Takes the node if editable is true, the node is only in memory and the reference count to it
+    /// is 1. Otherwise clones the node. This method can be used to build trees that can be used
+    /// either as persistent or transient data structures. A transient version of a persistent data
+    /// structure is one where nodes that are not shared with any other version are safe to mutate.
     pub fn take_or_clone(&self, node_ref: NodeRef<N>, editable: bool) -> Result<Option<(N, bool)>> {
         if !editable {
             return match self.read(&node_ref)? {
@@ -126,6 +137,11 @@ impl<N: Node> NodeManager<N> {
         }
     }
 
+    /// Saves the node to the underlying storage (if it has not been saved already)
+    /// and returns the pointer to it which can be used by the parent node
+    /// pointing to this node in its serialized form to point to its child.
+    /// If the node has already been saved, its reference count will be incremented
+    /// whenever save is called.
     pub fn save(&mut self, node_ref: &NodeRef<N>) -> Result<Option<N::Ptr>> {
         match node_ref {
             NodeRef::Inner(inner) => {
@@ -134,7 +150,7 @@ impl<N: Node> NodeManager<N> {
                         match node_ref.deref() {
                             NodeRefInner::MemNode(node) => {
                                 // TODO cache
-                                let ptr = self.node_store.create(node)?;
+                                let ptr = self.node_store.insert(node)?;
                                 *node_ref = NodeRefInner::StoredNode {
                                     pointer: ptr.clone(),
                                     cached: Default::default(), // TODO weak pointer from cached Arc

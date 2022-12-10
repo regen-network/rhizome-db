@@ -1,5 +1,3 @@
-//! The [NodeRef] and [NodeHandle] primitives
-
 use std::ops::Deref;
 use std::sync::{Arc, RwLock, RwLockReadGuard, Weak};
 
@@ -21,7 +19,7 @@ pub enum NodeRef<N: Node>
     Empty,
 }
 
-/// Internal node data. TODO: find a way to make this private.
+/// Internal node data.
 #[derive(Debug, Clone)]
 pub enum NodeRefInner<N: Node> {
     /// A node stored in memory.
@@ -32,7 +30,7 @@ pub enum NodeRefInner<N: Node> {
         pointer: N::Ptr,
 
         /// a weak reference to the node in the in-memory cache (if it has been loaded from storage).
-        cached: Weak<N>
+        cached: Weak<N>,
     },
 }
 
@@ -46,6 +44,14 @@ impl<N: Node> NodeRef<N> {
     /// Create a new NodeRef from a node.
     pub fn new(node: N) -> Self {
         NodeRef::Inner(Arc::new(RwLock::new(NodeRefInner::MemNode(node))))
+    }
+
+    /// Creates a NodeRef from storage layer pointer.
+    pub fn from_ptr(ptr: N::Ptr) -> Self {
+        NodeRef::Inner(Arc::new(RwLock::new(NodeRefInner::StoredNode {
+            pointer: ptr,
+            cached: Weak::default()
+        })))
     }
 }
 
