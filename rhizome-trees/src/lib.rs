@@ -1,8 +1,9 @@
 //! A library of serializable, persistent data structures with optional
 //! merkle hashes.
 
-#![warn(rustdoc::broken_intra_doc_links)]
-#![warn(missing_docs)]
+#![deny(missing_docs)]
+#![deny(rustdoc::missing_doc_code_examples)]
+#![deny(rustdoc::broken_intra_doc_links)]
 
 pub mod tree;
 pub mod node_ref;
