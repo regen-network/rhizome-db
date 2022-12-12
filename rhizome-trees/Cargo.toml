@@ -8,3 +8,6 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.66"
 lru = "0.8.1"
+
+[dev-dependencies]
+coverage-helper = "0.1"

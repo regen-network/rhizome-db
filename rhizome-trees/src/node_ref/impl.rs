@@ -89,6 +89,7 @@ mod tests {
     use crate::node_ref::{Node, NodeRef};
     use crate::node_ref::NodeRef::Empty;
     use crate::node_ref::r#impl::{NodeRefInner, Pointer};
+    use coverage_helper::test;
 
     #[derive(Debug, Clone, PartialEq)]
     pub(crate) struct TestNode<Ptr> {
