@@ -1,5 +1,7 @@
+use std::borrow::Borrow;
+use std::collections::HashMap;
 use anyhow::{anyhow, Result};
-use std::sync::{Arc};
+use std::sync::{Arc, LockResult, RwLock};
 
 use crate::node_ref::r#impl::{Node};
 
@@ -16,7 +18,7 @@ pub trait NodeStore<N : Node> {
     /// It is expected that the node manager has safely ensured
     /// that the reference count of this node has been decremented
     /// to zero before calling delete.
-    fn delete(&self, ptr: &N::Ptr) -> Result<()>;
+    fn delete(&mut self, ptr: &N::Ptr) -> Result<()>;
 
     /// Increments the reference count of the node in the storage medium
     /// and returns the current reference count.
@@ -27,35 +29,85 @@ pub trait NodeStore<N : Node> {
     fn dec_ref_count(&mut self, ptr: &N::Ptr) -> Result<u32>;
 
     /// Clones the node store dynamically.
-    fn clone(&self) -> Box<dyn NodeStore<N>>;
+    fn clone_ref(&self) -> Box<dyn NodeStore<N>>;
 }
 
-/// An empty node store that neither saves nor deletes nodes.
-pub struct NullNodeStore {}
-
-impl<N: Node> NodeStore<N> for NullNodeStore
+/// An node store backed by memory for testing.
+#[derive(Default, Clone)]
+pub(crate) struct MemNodeStore<N: Node<Ptr=usize>>
+    where
 {
-    fn insert(&mut self, _node: &N) -> Result<N::Ptr> {
-        Err(anyhow!("not implemented"))
+    hm: Arc<RwLock<HashMap<usize, (u32, Arc<N>)>>>
+}
+
+impl<N: Node<Ptr=usize>> NodeStore<N> for MemNodeStore<N>
+{
+    fn insert(&mut self, node: &N) -> Result<N::Ptr> {
+        match self.hm.write() {
+            Ok(mut hm) => {
+                hm.insert(hm.len(), (1, Arc::new(node.clone())));
+                Ok(hm.len())
+            }
+            Err(_) => Err(anyhow!("poison"))
+        }
     }
 
-    fn read(&self, _ptr: &N::Ptr) -> Result<Arc<N>> {
-        Err(anyhow!("not implemented"))
+    fn read(&self, ptr: &N::Ptr) -> Result<Arc<N>> {
+        match self.hm.read() {
+            Ok(hm) => {
+                match hm.get(ptr) {
+                    None => Err(anyhow!("not found")),
+                    Some((_, n)) => Ok(n.clone())
+                }
+            }
+            Err(_) => Err(anyhow!("poison"))
+        }
     }
 
-    fn delete(&self, _ptr: &N::Ptr) -> Result<()> {
-        Err(anyhow!("not implemented"))
+    fn delete(&mut self, ptr: &N::Ptr) -> Result<()> {
+        match self.hm.write() {
+            Ok(mut hm) => {
+                hm.remove(ptr);
+                Ok(())
+            }
+            Err(_) => Err(anyhow!("poison"))
+        }
     }
 
-    fn inc_ref_count(&mut self, _ptr: &N::Ptr) -> Result<u32> {
-        Ok(1)
+    fn inc_ref_count(&mut self, ptr: &N::Ptr) -> Result<u32> {
+        match self.hm.write() {
+            Ok(mut hm) => {
+                match hm.get_mut(ptr) {
+                    None => Err(anyhow!("not found")),
+                    Some((rc, _)) => {
+                        *rc += 1;
+                        Ok(*rc)
+                    }
+                }
+            }
+            Err(_) => Err(anyhow!("poison"))
+        }
     }
 
-    fn dec_ref_count(&mut self, _ptr: &N::Ptr) -> Result<u32> {
-        Ok(1)
+    fn dec_ref_count(&mut self, ptr: &N::Ptr) -> Result<u32> {
+        match self.hm.write() {
+            Ok(mut hm) => {
+                match hm.get_mut(ptr) {
+                    None => Err(anyhow!("not found")),
+                    Some((rc, _)) => {
+                        if *rc == 0 {
+                            return Ok(0)
+                        }
+                        *rc -= 1;
+                        Ok(*rc)
+                    }
+                }
+            }
+            Err(_) => Err(anyhow!("poison"))
+        }
     }
 
-    fn clone(&self) -> Box<dyn NodeStore<N>> {
-        Box::new(Self{})
+    fn clone_ref(&self) -> Box<dyn NodeStore<N>> {
+        Box::new(self.clone())
     }
 }

@@ -4,7 +4,7 @@ use anyhow::{anyhow, Result};
 use lru::LruCache;
 use crate::node_ref::r#impl::{Node, NodeHandle, NodeRef};
 use crate::node_ref::r#impl::{NodeRefInner};
-use crate::node_ref::node_store::{NodeStore, NullNodeStore};
+use crate::node_ref::node_store::{NodeStore};
 
 /// The NodeManager functions as an abstraction over node storage and caching
 /// which properly handles reading and writing of nodes.
@@ -16,18 +16,9 @@ pub struct NodeManager<N: Node> {
     pub cache: Arc<LruCache<N::Ptr, N>>,
 }
 
-impl <N: Node> Default for NodeManager<N> {
-    fn default() -> Self {
-        NodeManager{
-            node_store: Box::new(NullNodeStore{}),
-            cache: Arc::new(LruCache::unbounded()),
-        }
-    }
-}
-
 impl<N: Node> Clone for NodeManager<N> {
     fn clone(&self) -> Self {
-        Self{ node_store: self.node_store.clone(), cache: self.cache.clone() }
+        Self{ node_store: self.node_store.clone_ref(), cache: self.cache.clone() }
     }
 }
 
@@ -165,5 +156,15 @@ impl<N: Node> NodeManager<N> {
                 Ok(None)
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use coverage_helper::test;
+
+    #[test]
+    fn test1() {
+
     }
 }
