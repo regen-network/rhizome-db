@@ -161,10 +161,18 @@ impl<N: Node> NodeManager<N> {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
     use coverage_helper::test;
+    use lru::LruCache;
+    use crate::node_ref::node_store::MemNodeStore;
+    use crate::node_ref::NodeManager;
+    use crate::node_ref::r#impl::TestNode;
 
     #[test]
-    fn test1() {
-
+    fn test_manager() {
+        let mut mgr = NodeManager{
+            node_store: Box::new(MemNodeStore::<TestNode<usize>>::default()),
+            cache: Arc::new(LruCache::unbounded()),
+        };
     }
 }

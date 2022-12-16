@@ -84,21 +84,30 @@ impl<'a, N: Node> Deref for NodeHandle<'a, N> {
 }
 
 #[cfg(test)]
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct TestNode<Ptr> {
+    pub(crate) ptr: Ptr
+}
+
+#[cfg(test)]
+impl <Ptr: Pointer> Node for TestNode<Ptr> {
+    type Ptr = Ptr;
+}
+
+#[cfg(test)]
+impl <Ptr: Pointer + Default> Default for TestNode<Ptr> {
+    fn default() -> Self {
+        Self{ptr: Default::default()}
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use std::ops::Deref;
-    use crate::node_ref::{Node, NodeRef};
+    use crate::node_ref::NodeRef;
     use crate::node_ref::NodeRef::Empty;
-    use crate::node_ref::r#impl::{NodeRefInner, Pointer};
+    use crate::node_ref::r#impl::{NodeRefInner, TestNode};
     use coverage_helper::test;
-
-    #[derive(Debug, Clone, PartialEq)]
-    pub(crate) struct TestNode<Ptr> {
-        pub(crate) ptr: Ptr
-    }
-
-    impl <Ptr: Pointer> Node for TestNode<Ptr> {
-        type Ptr = Ptr;
-    }
 
     #[test]
     fn test_default() {
