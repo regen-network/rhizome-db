@@ -22,6 +22,8 @@ All the trees will be benchmarked comprehensively to allow for performance compa
 and configurations. As a near term goal, there is the hope that this can help improve the performance of
 [Cosmos SDK](https://github.com/cosmos/cosmos-sdk) based projects.
 
+A set of basic CRDT types to support `rhizome-db` will also be part of `rhizome-trees`.
+
 ## `rhizome-db`
 
 **WARNING: This is an experimental project. We make no guarantees it will
@@ -31,7 +33,8 @@ don't know.
 
 A peer to peer databases which aims to eventually have the following features:
 * can be run on any platform (server, mobile, web browser)
-* syncs data between peers using CRDTs with eventually consistency
+* syncs data between peers using CRDTs with eventually consistency to support
+local-first, offline-capable apps
 * has fine-grained read/write privacy and selective syncing strategies
 * can also work with a light client (i.e. no local data just server connection)
 * optional historical state and forking/branching like git, with pruning support
