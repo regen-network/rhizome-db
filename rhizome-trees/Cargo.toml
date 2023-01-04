@@ -6,3 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = "1.0.66"
+lru = "0.8.1"
+
+[dev-dependencies]
+coverage-helper = "0.1"
+assert_matches = "1.5"
