@@ -18,7 +18,7 @@ pub struct NodeManager<N: Node> {
 
 impl<N: Node> Clone for NodeManager<N> {
     fn clone(&self) -> Self {
-        Self{ node_store: self.node_store.clone_ref(), cache: self.cache.clone() }
+        Self { node_store: self.node_store.clone_ref(), cache: self.cache.clone() }
     }
 }
 
@@ -40,7 +40,7 @@ impl<N: Node> NodeManager<N> {
                     have_mem_node = true;
                 }
                 if have_mem_node {
-                    return Ok(Some(NodeHandle::Mem(node_ref)))
+                    return Ok(Some(NodeHandle::Mem(node_ref)));
                 }
                 match node_ref.deref() {
                     NodeRefInner::MemNode(_) => Err(anyhow!("unexpected case")),
@@ -165,14 +165,20 @@ mod tests {
     use coverage_helper::test;
     use lru::LruCache;
     use crate::node_ref::node_store::MemNodeStore;
-    use crate::node_ref::NodeManager;
+    use crate::node_ref::{NodeManager, NodeRef};
     use crate::node_ref::r#impl::TestNode;
 
     #[test]
     fn test_manager() {
-        let mut mgr = NodeManager{
+        let mut mgr = NodeManager {
             node_store: Box::new(MemNodeStore::<TestNode<usize>>::default()),
             cache: Arc::new(LruCache::unbounded()),
         };
+        let nref = NodeRef::new(TestNode { data: 10, child: None });
+        match mgr.read(&nref) {
+            Ok(Some(node)) => assert_eq!(node.data, 10),
+            _ => panic!("unexpected")
+        }
+        assert_matches!(mgr.save(&nref), Ok(Some(1)));
     }
 }

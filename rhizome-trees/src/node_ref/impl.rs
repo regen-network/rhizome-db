@@ -61,6 +61,7 @@ impl<N: Node> NodeRef<N> {
 }
 
 /// An in-memory handle to a node that may have been loaded from memory or storage.
+#[derive(Debug)]
 pub enum NodeHandle<'a, N: Node> {
     /// A handle to an in-memory node.
     Mem(RwLockReadGuard<'a, NodeRefInner<N>>),
@@ -86,7 +87,8 @@ impl<'a, N: Node> Deref for NodeHandle<'a, N> {
 #[cfg(test)]
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct TestNode<Ptr> {
-    pub(crate) ptr: Ptr
+    pub(crate) data: i32,
+    pub(crate) child: Option<Ptr>
 }
 
 #[cfg(test)]
@@ -97,7 +99,7 @@ impl <Ptr: Pointer> Node for TestNode<Ptr> {
 #[cfg(test)]
 impl <Ptr: Pointer + Default> Default for TestNode<Ptr> {
     fn default() -> Self {
-        Self{ptr: Default::default()}
+        Self{ data: 0, child: Default::default()}
     }
 }
 
@@ -120,7 +122,8 @@ mod tests {
     #[test]
     fn test_new() {
         let node = TestNode{
-            ptr: 1,
+            data: 0,
+            child: Some(1),
         };
         match NodeRef::new(node.clone()) {
             NodeRef::Inner(inner) => {

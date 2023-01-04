@@ -1,7 +1,6 @@
-use std::borrow::Borrow;
 use std::collections::HashMap;
 use anyhow::{anyhow, Result};
-use std::sync::{Arc, LockResult, RwLock};
+use std::sync::{Arc, RwLock};
 
 use crate::node_ref::r#impl::{Node};
 
@@ -34,26 +33,25 @@ pub trait NodeStore<N : Node> {
 
 /// An node store backed by memory for testing.
 #[derive(Default, Clone)]
-pub(crate) struct MemNodeStore<N: Node<Ptr=usize>>
-    where
-{
-    hm: Arc<RwLock<HashMap<usize, (u32, Arc<N>)>>>
-}
+pub(crate) struct MemNodeStore<N: Node<Ptr=usize>>(MemNodeStoreInner<N>);
 
-impl<N: Node<Ptr=usize>> NodeStore<N> for MemNodeStore<N>
+pub(crate) type MemNodeStoreInner<N> = Arc<RwLock<HashMap<usize, (u32, Arc<N>)>>>;
+
+impl<N: Node<Ptr=usize> + 'static> NodeStore<N> for MemNodeStore<N>
 {
     fn insert(&mut self, node: &N) -> Result<N::Ptr> {
-        match self.hm.write() {
+        match self.0.write() {
             Ok(mut hm) => {
-                hm.insert(hm.len(), (1, Arc::new(node.clone())));
-                Ok(hm.len())
+                let n = hm.len() + 1;
+                hm.insert(n, (1, Arc::new(node.clone())));
+                Ok(n)
             }
             Err(_) => Err(anyhow!("poison"))
         }
     }
 
     fn read(&self, ptr: &N::Ptr) -> Result<Arc<N>> {
-        match self.hm.read() {
+        match self.0.read() {
             Ok(hm) => {
                 match hm.get(ptr) {
                     None => Err(anyhow!("not found")),
@@ -65,7 +63,7 @@ impl<N: Node<Ptr=usize>> NodeStore<N> for MemNodeStore<N>
     }
 
     fn delete(&mut self, ptr: &N::Ptr) -> Result<()> {
-        match self.hm.write() {
+        match self.0.write() {
             Ok(mut hm) => {
                 hm.remove(ptr);
                 Ok(())
@@ -75,7 +73,7 @@ impl<N: Node<Ptr=usize>> NodeStore<N> for MemNodeStore<N>
     }
 
     fn inc_ref_count(&mut self, ptr: &N::Ptr) -> Result<u32> {
-        match self.hm.write() {
+        match self.0.write() {
             Ok(mut hm) => {
                 match hm.get_mut(ptr) {
                     None => Err(anyhow!("not found")),
@@ -90,7 +88,7 @@ impl<N: Node<Ptr=usize>> NodeStore<N> for MemNodeStore<N>
     }
 
     fn dec_ref_count(&mut self, ptr: &N::Ptr) -> Result<u32> {
-        match self.hm.write() {
+        match self.0.write() {
             Ok(mut hm) => {
                 match hm.get_mut(ptr) {
                     None => Err(anyhow!("not found")),

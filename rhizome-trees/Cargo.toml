@@ -11,3 +11,4 @@ lru = "0.8.1"
 
 [dev-dependencies]
 coverage-helper = "0.1"
+assert_matches = "1.5"
